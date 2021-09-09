@@ -1,0 +1,349 @@
+---
+title: "Analysis of Video Game Sales"
+author: "West Ham"
+date: "16/03/2021"
+output:
+  
+  word_document: default
+  html_document: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE, out.width = "25%", fig.width = 8)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(gridExtra)
+library(ggrepel)
+library(naniar)
+library(ggpubr)
+```
+
+The Data set consists of video game sales from 1980 to 2016 in different countries(North America, Europe, Japan and others) and regions. Overall, the data set consists of 16719 rows and 16 columns. It emphasizes on various features like publisher, developer, platform, critic score, user score, rating, genre of the games. Initially, during 1985 and 1992 the sales were very low. Gradually, the huge demand for video game sales started in the mid 90’s. Each video game consists of different kinds of ratings based on the genre like E= Everyone, AO= Adults only, E10+ = Everyone above 10+ age, EC = Early Childhood, M = Mature, T= Teen, RP= Rating Pending. 
+
+The below are the list of columns used in data set.
+
+    Name - Name of the game.
+    Platform - Game console.
+    Year_of_Release - Year of the Game's release date.
+    Genre - Game type (action, sports, etc.)
+    Publisher - Game studio.
+    NA_Sales - Sales in North America.
+    EU_Sales - Sales in Europe.
+    JP_Sales - Sales in japan.
+    Other_Sales - Sales in other regions.
+    Global_Sales - Sales around the globe.
+    Critic_score - Aggregate score compiled by Meta critic staff.
+    Critic_Count - The number of critics used in coming up with the Critic score.
+    User_Score - Score by Meta critic's subscribers.
+    User_Count - Number of users who gave the user score.
+    Developer - Party responsible for creating the game.
+    Rating - The ESRB ratings.
+    
+```{r,include=FALSE}
+# read the CSV file
+vgs_data <- read.csv("Video_Games_Sales_as_at_22_Dec_2016.csv",header=T)
+View(vgs_data) # to view the Data Set
+dim(vgs_data) # to view number of rows and columns in data
+str(vgs_data) # To check the data types
+sum(is.na(vgs_data)) #checking for missing values
+duplicated(vgs_data) %>%  sum()#checking for duplicates
+  vgs_data[vgs_data==""]=NA #converting empty strings to NA
+#Converting year variable from char to numeric and suppressing the warning messages
+vgs_data$Year_of_Release <- suppressWarnings(as.numeric(vgs_data$Year_of_Release))
+```
+
+```{r}
+#----- Video games released by year based on Year of release and Genre ------#
+g <- vgs_data %>% filter(!is.na(Genre)) %>%
+  ggplot(aes(Year_of_Release)) 
+g + geom_bar(aes(fill=Genre), position = "stack")+
+  scale_fill_brewer(palette = "Set3") + 
+  ggtitle("Number of Games released per year in different Genres") +
+  scale_x_continuous(name = "Year", breaks = seq(1980,2020,4))
+```
+
+The above bar chart illustrates the number of video games released every year during 1980 to 2016 at 4-year interval in accordance with genre. X-axis represents the year of release and Y-axis represents the count of video games. Initially, between 1980 to 1992 there were very a smaller count of games were released and most of the games released on few genres (sports, action, fighting). Between 2002 to 2013 huge number of video games are released. In the year 2002 the video games released are more that 500, Unfortunately the count is dropped little bit in the years 2003 & 2004. Overall, we can observe that, between 2007 to 2011 the video game release count had drastically increased to 1400 approx.  From 2012 the release of video games on different genre had diminished. Highest number of video games are released on action, role playing and sports genres.
+
+```{r}
+#----- Representation Video games released by Publishers based on Genre ------#
+pg <- vgs_data %>% filter(!is.na(Genre)) %>%
+  ggplot(aes(Platform))
+  pg + geom_bar(aes(fill=Genre), position = "stack" ) + 
+   ggtitle(" Video games released by Platform based on Genre") +
+    scale_y_continuous(name = "Count", breaks = seq(0,2000,250)) +
+    coord_flip()
+```
+
+The above bar graph demonstrates the number of video games released by different publishers based on different genres. y-axis represents Platform, x-axis represents the count. PS2 and DS publishers had released significant number of games as compared to others and fewer games were released by WS, TG16, SCD, PCFX, NG, GG and 3DO publishers.
+
+```{r}
+#------------ Visualization of Sales ---------#
+na <- ggplot(vgs_data, aes(x=Year_of_Release,y=NA_Sales))+
+  geom_line(color="BLUE")+
+  scale_x_continuous(name = "Year", breaks = seq(1980,2020,5))
+eu <- ggplot(vgs_data, aes(x=Year_of_Release,y=EU_Sales))+
+  geom_line(color="#C11B17")+
+  scale_x_continuous(name = "Year", breaks = seq(1980,2020,5))
+jp <- ggplot(vgs_data, aes(x=Year_of_Release,y=JP_Sales))+
+  geom_line(color="MAGENTA")+
+  scale_x_continuous(name = "Year", breaks = seq(1980,2020,5))
+os <- ggplot(vgs_data, aes(x=Year_of_Release,y=Other_Sales))+
+  geom_line(color="orange")+
+  scale_x_continuous(name = "Year", breaks = seq(1980,2020,5))
+fig <- ggarrange(na, eu, jp, os , 
+          labels = c("NorthAmerica Sales", "Europe Sales", "Japan Sales", "Other Sales"),
+          ncol = 2, nrow = 2)
+annotate_figure(fig,top = text_grob(" Overall Visualization of Sales", color = "black", face = "bold", size = 12))
+```
+
+The above line graph illustrates about the sales of video games in North America, Europe, Japan and other countries. X- axis represents the year and Y-axis represent the sales measured in millions. In the year 1995 japan had recorded highest sales more than 10 million.  North America had also recorded 30 million sales in the year 1983 and 1985. Compared to Japan in the year 2005 north America, Europe and other country sales records the highest number.
+
+```{r}
+#------------ Comparison of Global sales with NA,EU,Japan and other counties ------------#
+yearly=vgs_data %>%
+  group_by(Year_of_Release) %>%
+  dplyr::summarize(numrelease=n(),Japan=sum(JP_Sales), NorthAmerica=sum(NA_Sales),
+                   Europe=sum(EU_Sales),Others=sum(Other_Sales), 
+                   Worldwide=sum(Global_Sales)) 
+yearly$Year_of_Release = as.numeric((yearly$Year_of_Release))
+yearly=yearly[!(is.na(yearly$Year_of_Release)),]
+#There are only 3 observations in the year 2017 so I will remove them
+yearly=subset(yearly, yearly$Year_of_Release!=2017)
+years = yearly %>% 
+  gather(Region, Value, -c(Year_of_Release, numrelease)) %>% 
+  arrange(Region)
+ggplot(years, aes(x=Year_of_Release, y=Value, color=Region))+
+  geom_point()+
+  geom_line()+
+  ggtitle("Comparison of Global sales with NA,EU,Japan and other counties") +
+  theme(legend.position="top")+
+  theme(axis.text.x = element_text(angle=60, hjust=1)) +
+  scale_x_continuous("Year",labels = as.character(years$Year_of_Release), 
+                     breaks=years$Year_of_Release) +
+  scale_y_continuous("Value", breaks = seq(0,800,100))
+```
+
+The above line graph represents the comparison of Global video game sale with North America, Europe, japan and other region sales. X-axis is represented as years and y-axis is represented as value. During 1980 and 1983 North America sales and Global sales are almost equal. Overall, irrespective of Global sales North America tops in video game sales as compared to Europe, japan and other regions. Europe had the moderate video game sales. As there is no data between 2017 to 2020, we can ignore.
+
+```{r Top_Platform , echo=FALSE, message=FALSE, warning=FALSE,fig.cap="Global Top Five Selling Game Platform"}
+###TOP 5 POPULAR GAME PLATFORM 
+fig.align = 'center' 
+G_Plat1  <- vgs_data %>% 
+  group_by(Platform) %>%
+  summarise(Total_plat =sum(Global_Sales,na.rm = TRUE)) %>%
+  arrange(desc(Total_plat))
+##
+Top_Platform <- G_Plat1 %>% head(5) %>%
+  ggplot(aes(reorder(x=Platform,Total_plat) , y= Total_plat, fill =Platform))+
+  geom_bar(stat = "identity", color = "black" ) +
+  labs(title = "Global Video Game Sales by Gaming Platform",x = "Game Platform", y="Game Sales in Millions")
+Top_Platform + scale_fill_manual(values=c("dark grey", "dark orange", "light blue","#56B4E9","#E69F00"))
+```
+
+The following visualization was done to show the  top  game sales by platform globally and to see sales comparison of the top selling platform in different regions.
+This Figure ranks the top five video game platform/consoles according to their share in the global video game unit sales from the year 1980-2018. The data clearly shows that the PlayStation gaming platforms are dominating the global market with PS2 with about 1.25 million video game unit sales globally and PS3 with just above 800 million video game unit sales globally.
+
+```{r Top selling Platform Region, echo=FALSE, message=FALSE, warning=FALSE}
+# Regional game platforms(JAPAN)
+G_Plat2 <- vgs_data %>% 
+  group_by(Platform) %>%
+  summarise(Total_plat =sum(JP_Sales,na.rm = TRUE)) %>%
+  arrange(desc(Total_plat))
+Top_Platform_JP <- G_Plat2  %>% head(5) %>%
+  ggplot(aes(reorder(x=Platform,Total_plat) , y= Total_plat, fill =Platform))+
+  geom_bar(stat = "identity", color = "black" ) +
+  labs(x = "Game Platform",y="Sales")
+G_Plat3 <- vgs_data %>% 
+  group_by(Platform) %>%
+  summarise(Total_plat =sum(EU_Sales,na.rm = TRUE)) %>%
+  arrange(desc(Total_plat))
+Top_Platform_EU <- G_Plat3  %>% head(5) %>%
+  ggplot(aes(reorder(x=Platform,Total_plat) , y= Total_plat, fill =Platform))+
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Game Platform",y="Sales")
+#region north America
+G_Plat4 <- vgs_data %>% 
+  group_by(Platform) %>%
+  summarise(Total_plat =sum(NA_Sales,na.rm = TRUE)) %>%
+  arrange(desc(Total_plat))
+Top_Platform_NA<- G_Plat4 %>% head(5) %>%
+  ggplot(aes(reorder(x=Platform,Total_plat) , y= Total_plat, fill =Platform))+
+  geom_bar(stat = "identity", color = "black" ) +
+  labs(x = "Game Platform",y="Sales")
+#region other
+G_Plat5 <- vgs_data %>% 
+  group_by(Platform) %>%
+  summarise(Total_plat =sum(Other_Sales,na.rm = TRUE)) %>%
+  arrange(desc(Total_plat))
+Top_Platform_OT<- G_Plat5 %>% head(5) %>%
+  ggplot(aes(reorder(x=Platform,Total_plat) , y= Total_plat, fill =Platform))+
+  geom_bar(stat = "identity", color = "black" ) +
+  labs(x = "Game Platform",y="Sales")
+figure <- ggarrange(Top_Platform_JP,Top_Platform_NA,
+                    Top_Platform_EU,Top_Platform_OT,
+                    labels = c("Japan", "North America","Europe" ,"Others"), ncol = 2, nrow = 2,label.y = 1,hjust= -1.15,vjust = 0.8,
+                    font.label =list(size=10))
+annotate_figure(figure,top = text_grob("Regional Video Game Sales by Gaming Platform", color = "black", face = "bold", size = 12),
+        left = text_grob("Game Sales in Millions", color = "black", rot = 90))
+
+```
+
+This Figure ranks the top five video game platform/consoles according to their share in four regional video game unit sales from the year 1980-2018, with North America having the highest sales share. 
+From the graph two new platform entries are observed in Japan, that is 3DS and SNES. These two-platform account for the lowest sales in Japan, with DS leading the sales and the PlayStation platforms dominating with the PS and PS2. 
+On the other hand, the North American region video game sales is headed by X360 with 600 million sales but remains equally dominated by the PlayStation platforms with PS2 just below 600million and PS3 just below 400 million. The DS platform in North America accounts for the highest video game sales among the three other regions notwithstanding being the top selling platform in Japan.
+Europe also show a similar trend of the PlayStation gaming platforms dominating its market with PS2 and PS3 with about 320 million video game unit sales each.
+
+```{r}
+#----------- game sales -------------#
+game_set <- vgs_data %>%
+            select(Year_of_Release, Platform, Global_Sales, EU_Sales) %>%
+            filter(!Year_of_Release %in% c('NA','2016','2017','2020'))
+
+#-------- Play station sales --------#
+playstation <- game_set %>%
+               filter(Platform %in% c('PS','PS2','PS3','PS4','PSP','PSV')) %>% 
+               filter(Global_Sales <= 7.5)
+
+#--------- Box Plot to show Global sales for playstation------------#
+ps_box <- ggplot(playstation,aes(x=Platform,y=Global_Sales)) +
+          geom_boxplot(aes(fill = Platform)) +
+          theme_minimal() +
+          theme(legend.position = "top")+
+          labs(y="Global sales in Millions") +
+          ggtitle(" Play station Global Sales")
+ps_box
+```
+
+The above box plot portrays the information of the play station video game sales globally. X-axis represents the different play station modules (PS, PS2, PS3, PS4, PSP, PSV) and Y-axis represents the Global sales represented in millions. PS4 has the highest number of sales globally as compared to other and PSP and PSV records the miserable sales in the play station platform.
+
+
+```{r}
+#------------ Rating of games in reference to Genre--------#
+rating_set <- vgs_data %>%
+              filter(!is.na(Rating)) %>%
+              select(Year_of_Release, Genre, Rating, Platform) %>%
+              filter(!Year_of_Release %in% c('NA','2016','2017','2020'))
+rating_area <- ggplot(rating_set, aes(x = Genre)) +geom_bar(aes(fill = Rating), position = "dodge") +
+               labs(y="Rating Count") +
+               scale_fill_brewer(palette = "Set2") +
+               ggtitle("Rating of video games in reference to Genre")
+               
+rating_area
+```
+
+The above bar graph illustrates the information about the rating of video games in reference to genre. Different kinds of rating available for each genre (E= Everyone, AO= Adults only, E10+ = Everyone above 10+ age, EC = Early Childhood, M = Mature, T= Teen, RP= Rating Pending). Sports genre is rated E which is the highest and implies everyone is eligible to play. In Action genre games Teens are represented as high in count and in Racing genre is rated as E which means every once can play. Shooting genre is rated as M by most of them which means only mature persons need to play.
+
+```{r}
+#--------- Critic and User Score for the Top Selling Games --------#
+topgames=subset (vgs_data, vgs_data$Global_Sales>21.8 & !(is.na(vgs_data$Critic_Score))) 
+topgames=topgames %>%
+  select(Name, Critic_Score, User_Score)
+topgames$Critic_Score=topgames$Critic_Score/10.0
+cuc <- c("Wii Sports", "New Super Mario Bros.", "Mario Kart Wii", "Wii Sports Resort",
+    "Wii Play", "New Super Mario Bros. Wii",  "Mario Kart DS", "Wii Fit", 
+    "Kinect Adventures!")
+topgames = topgames %>%
+  mutate(Name =  factor(Name, levels = cuc)) %>%
+  arrange(Name)  
+graph = topgames %>% 
+  gather(Score_Types, Value, -Name) %>% 
+  arrange(Name)
+ggplot(graph, aes(x = Score_Types, y = Value, fill = Score_Types)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title="The Critic and User Score for the Top Selling Games",
+       subtitle="Ordered by the game's popularity",
+       x="Score Type", y="Scores")+ 
+      coord_flip() +
+  scale_fill_brewer(palette = "Set1") +
+  facet_wrap(~Name) +
+  geom_text(aes(label=Value), vjust=1.1, color="black", size=2)+
+  theme(axis.text.x = element_text(angle=40, hjust=1)) +
+  theme(legend.position="top")
+```
+
+The above graph elucidates the information of the top selling games based on critic score and user score. Mario Kart DS game is having the highest critic and user compared to others and New Super Maria Bros stands just below. Kinect Adventures and Wii play had got the least critic and user score. critic and user scores were almost similar for remaining top selling games.
+
+```{r}
+#------- Global scales in reference to User scores ---------#
+usg <- vgs_data%>%
+  filter(!is.na(User_Score))
+ggplot(usg, aes(x=User_Score, y=Global_Sales, col=Global_Sales)) +
+  scale_x_discrete(name = "User Score", breaks = seq(1,10,1)) +
+  scale_y_continuous(name = "Sales", limits = c(0,40)) +
+  ggtitle("Global scales in reference to User scores")+
+  geom_point() + 
+  geom_jitter()
+```
+
+The above scatter/jitter plot depicts the information regarding video game sales in refence to user scores.  Approximately 8.3 is the highest given by user’s and sales is more that 35 million, one more is rated as 8 and it sales is approximately 33 million. There are very few video game sales in which user score is between 6 to 9 and sales is between 15 to 30 million. Most of the videogame sale is below 10 million even if the user score is between 7 to 9. 
+
+```{r}
+sales = vgs_data %>%
+  group_by(Platform) %>%
+  dplyr::summarize(releasenum=n(),Japan=round(sum(JP_Sales),1),
+                   NorthAmerica=round(sum(NA_Sales),1),
+                   Europe=round(sum(EU_Sales),1),
+                   Others=round(sum(Other_Sales),1)) %>%
+  filter(releasenum>=824)
+pos=c("PS2", "DS", "PS3", "Wii", "X360", "PSP",  "PS", "PC", "XB")
+sales = sales %>%
+  mutate(Platform =  factor(Platform, levels = pos)) %>%
+  arrange(Platform) 
+#melt to plot multiple bars
+plats = sales %>% 
+  gather(Region, Value, -c(Platform, releasenum)) %>% 
+  arrange(Platform)
+ggplot(plats, aes(x = Region, y = Value, fill = Region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title="The Total Sales for each Region", 
+       subtitle= "For each platform ordered by (desc) the platform's number of releases",
+       x="Regions",y="Total Sales in Millions")+   
+  facet_wrap(~Platform) +
+  scale_fill_brewer(palette = "PiYG") +
+  geom_text(aes(label=Value), vjust=0.3, color="black", size=2)+
+  theme(axis.text.x = element_text(angle=40, hjust=1)) +
+  theme(legend.position="top")
+```
+
+The above bar graph illustrates the information about the total sales in each region(Europe, Japan, North America, Others) and platforms number of releases. Overall total sales is major in North America with respect of all platforms. Considerably, Japan and Others reports the minimal sales in all platforms and Europe has the decent sales in all platforms. PSP platform has the lowest sales in all the regions.
+
+```{r Top selling Games, echo=FALSE ,message =FALSE,warning=FALSE}
+#top 10 selling games Globally
+Top_Globalsales <- vgs_data %>% arrange(desc(Global_Sales)) %>% head(10) %>%
+   ggplot(aes(reorder(x=Name,Global_Sales) , y= Global_Sales,fill= Genre))+geom_bar(stat = "identity") +
+  labs(title = " Global Top Ten Selling Games",x = "Game Name", y="Global Sales in Millions")
+Top_Globalsales + coord_flip()
+```
+
+The bar graph visualization was done to show the  top ten selling games globally and this was performed using bar plot to show the count.
+The graph above ranks the top ten selling games from 1980-2020, Wii Sports is the best-selling video game with a little over 82.65 million units sold globally.
+
+```{r}
+#sum and arrange top publisher by globalsales
+G1 <- vgs_data %>%group_by(Publisher) %>%
+  summarise(Total =sum(Global_Sales)) %>%
+  arrange(desc(Total))
+#top ten game Publisher
+TPub_sales1 <- G1 %>% head(10) %>% 
+  ggplot(aes(reorder(x= Publisher,Total ), y= Total, fill=Total))+geom_bar(stat = "identity") +
+  labs(title = " Global Top Ten Selling Game Publishers",x = "Publisher", y="Total Sales per Publisher in Millions")+
+   scale_fill_gradient(low="purple", high="yellow")
+TPub_sales1 + coord_flip()
+```
+
+The  visualization was done to show the  top ten selling publisher globally.
+The above graph illustrates, the ten game publishers were ranked in order of game unit sales, using the total amount of global sales from the year 1980-2018. From the figure it could be observed that Nintendo with about 1.78 million sales has the highest global game unit sales this was followed by Electronic Arts which had about 1.1 million sales. The three least performing Publishers; Konami Digital Entertainment, Sega and Namco Bandai Games had similar sales ranging from 282-254 million sales.
+
+## Conclusion
+After doing the EDA we conclude that
+Some of the games are released on multiple platforms,resulting in higher sales of that particular game compared to other games which are released on fewer platforms.
+Over all games released between 2006 and 2011 years records the highest number of sales, On the other had we can see that there is very low sales in the beginning 1980 till mid 1990's.
+After global sales, North America is the region that amounts to maximum sales. In 1995 japan has the highest number of sales compare to others but, after that the sales had decreased drastically.
+Wii Sports ranks maximum in terms of global sales across all the platforms. 
+Super Mario stands second when looked at Sales figure for NES platform, while Grand Theft Auto ranks second when sales figures are 
+aggregated across all the platforms.
+Although highest number of games were released on DS platform, PS2 is the top grossing platform.
+Action is the top grossing Genre. 
